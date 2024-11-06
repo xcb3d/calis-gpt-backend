@@ -1,13 +1,12 @@
-import express, { json } from 'express'
+import express from 'express'
 import cors from 'cors'
 import ImageKit from 'imagekit'
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import Chat from '~/models/chat.js'
 import UserChats from '~/models/userChats.js'
-import { MongoClient } from 'mongodb'
-import { ClerkExpressRequireAuth } from '@clerk/clerk-sdk-node'
 import contact from './models/contact'
+import { clerkMiddleware } from '@clerk/express'
 
 const port = process.env.PORT || 3000
 const app = express()
@@ -25,7 +24,6 @@ app.use(cors({
   credentials: true
 }))
 
-const client = new MongoClient(process.env.MONGO_URI)
 const connect = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
@@ -43,12 +41,9 @@ app.get('/api/upload', (req, res) => {
   res.send(result)
 })
 
-app.post('/api/chats', ClerkExpressRequireAuth({
-  // Add options here
-  // See the Middleware options section for more details
-}), async(req, res) => {
-  const userId = req.auth.userId
-  const { text } = req.body
+app.post('/api/chats', async(req, res) => {
+  // const userId = req.auth.userId
+  const { text, userId } = req.body
   try {
     // Create a new chat document in the database
     const newChat = new Chat({
@@ -65,7 +60,6 @@ app.post('/api/chats', ClerkExpressRequireAuth({
     const userChat = await UserChats.find({
       userId: userId
     })
-    console.log('userChat', userChat)
     // If userChat doesn't exist, create a new userChat document
     if (!userChat.length) {
       // Create a new userChat document in the database
@@ -76,7 +70,6 @@ app.post('/api/chats', ClerkExpressRequireAuth({
           title: text.substring(0, 40)
         }]
       })
-      console.log('if')
       await newUserChat.save()
     } else {
       // If userChat exists, update the chats array with the new chat
@@ -90,7 +83,6 @@ app.post('/api/chats', ClerkExpressRequireAuth({
         }
         }
       )
-      console.log('else')
     }
     res.status(200).json(newChat._id)
   } catch (error) {
@@ -98,41 +90,36 @@ app.post('/api/chats', ClerkExpressRequireAuth({
   }
 })
 
-
-
-app.get('/api/userchats', ClerkExpressRequireAuth(), async (req, res) => {
-  const userId = req.auth.userId
-
+app.get('/api/userchats/:userId', async (req, res) => {
+  // const userId = req.auth.userId
+  const { userId } = req.params
+  // console.log("🚀 ~ app.use ~ userId:", req)
   try {
     const userChats = await UserChats.find({ userId: userId })
 
     if (!userChats) {
       return res.status(404).json({ message: 'User chats not found' })
     }
-    // console.log(userChats[0].chats)
     res.status(200).json(userChats[0].chats)
   } catch (error) {
-    console.error(error)
     res.status(500).json({ message: 'Error fetching user chats' })
   }
 })
 
-app.get('/api/userchats/chat/:id', ClerkExpressRequireAuth(), async (req, res) => {
-  const { id } = req.params
-  const userId = req.auth.userId
+app.get('/api/userchats/:userId/chat/:id', async (req, res) => {
+  const { id, userId } = req.params
 
   try {
     const chat = await Chat.findOne({ userId: userId, _id: id })
 
     res.status(200).json(chat)
   } catch (error) {
-    console.error(error)
     res.status(500).json({ message: 'Error fetching user chats' })
   }
 })
 
-app.put('/api/userchats/chat/:id', ClerkExpressRequireAuth(), async (req, res) => {
-  const userId = req.auth.userId
+app.put('/api/userchats/chat/:id', async (req, res) => {
+  const { userId } = req.body
 
   const { question, answer, img } = req.body
 
@@ -156,7 +143,6 @@ app.put('/api/userchats/chat/:id', ClerkExpressRequireAuth(), async (req, res) =
     )
     res.status(200).send(updatedChat)
   } catch (err) {
-    console.log(err)
     res.status(500).send('Error adding conversation!')
   }
 })
@@ -192,7 +178,6 @@ app.post('/api/contact', async (req, res) => {
     })
 
   } catch (error) {
-    console.error('Error in contact submission:', error)
     res.status(500).json({
       success: false,
       message: 'Error submitting feedback',
@@ -202,9 +187,12 @@ app.post('/api/contact', async (req, res) => {
 })
 
 app.use((err, req, res, next) => {
-  console.error(err.stack)
+  // const userId = req.auth.userId
+  // console.log("🚀 ~ app.use ~ userId:", req)
   res.status(401).send('Unauthenticated!')
 })
+
+app.use(clerkMiddleware())
 
 app.listen(port, () => {
   connect()
