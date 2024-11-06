@@ -96,13 +96,13 @@ app.get('/api/userchats/:userId', async (req, res) => {
   // console.log("🚀 ~ app.use ~ userId:", req)
   try {
     const userChats = await UserChats.find({ userId: userId })
-    console.log('userChats', userChats)
+    // console.log('userChats', userChats)
 
     if (!userChats) {
       return res.status(404).json({ message: 'User chats not found' })
     }
     if (userChats.length === 0) {
-    return res.status(200).json([{_id: '672a61ea7e4b115a4a3a88b1', title: 'Cảm ơn bạn nha', createAt: '2024-11-05T17:51:25.363Z'}])
+    return res.status(200).json([{_id: '672a61ea7e4b115a4a3a88b1', title: ' ', createAt: '2024-11-05T17:51:25.363Z'}])
     }
     res.status(200).json(userChats[0].chats)
   } catch (error) {
